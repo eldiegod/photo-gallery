@@ -1,54 +1,188 @@
 import * as React from 'react';
+import Image, { ImageProps } from 'next/image';
+import { GetStaticProps } from 'next';
+import clsxm from '@/lib/clsxm';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { BiDownload } from 'react-icons/bi';
 
-import ArrowLink from '@/components/links/ArrowLink';
-import ButtonLink from '@/components/links/ButtonLink';
-import UnderlineLink from '@/components/links/UnderlineLink';
-import UnstyledLink from '@/components/links/UnstyledLink';
+type PageProps = {
+  data: {
+    id: string;
+    author: string;
+    width: number;
+    height: number;
+    url: string;
+    download_url: string;
+  }[];
+};
 
-import Vercel from '~/svg/Vercel.svg';
+export default function HomePage({ data }: PageProps) {
+  const [images1, setImages1] = useState<PageProps['data']>(data.slice(0, 10));
+  const [images2, setImages2] = useState<PageProps['data']>(data.slice(10, 20));
+  const [images3, setImages3] = useState<PageProps['data']>(data.slice(20));
+  const [page, setPage] = useState(2);
+  const [dialogImg, setDialogImg] = useState<string | null>();
+  const loadMoreRef = useRef(null);
+  const isFetchingRef = useRef(false);
 
-export default function HomePage() {
+  useEffect(
+    function fetchMore() {
+      const fetch = async () => {
+        isFetchingRef.current = true;
+        const newData: PageProps['data'] = await fetchData(page);
+        isFetchingRef.current = false;
+
+        setImages1((prev) => [...prev, ...newData.slice(0, 10)]);
+        setImages2((prev) => [...prev, ...newData.slice(10, 20)]);
+        setImages3((prev) => [...prev, ...newData.slice(20)]);
+      };
+
+      if (!isFetchingRef.current) {
+        fetch();
+      }
+    },
+    [page]
+  );
+
+  const handleObserver = useCallback<IntersectionObserverCallback>(
+    async (entries) => {
+      const [target] = entries;
+      if (target.isIntersecting && !isFetchingRef.current) {
+        setPage((page) => page + 1);
+      }
+    },
+    []
+  );
+
+  useEffect(
+    function infiniteScroll() {
+      const option = {
+        root: null,
+        rootMargin: '0px',
+        threshold: 1.0,
+      };
+
+      const observer = new IntersectionObserver(handleObserver, option);
+
+      if (loadMoreRef.current) observer.observe(loadMoreRef.current);
+    },
+    [handleObserver]
+  );
+
   return (
-    <main>
-      <section className='bg-white'>
-        <div className='layout flex min-h-screen flex-col items-center justify-center text-center'>
-          <Vercel className='text-5xl' />
-          <h1 className='mt-4'>Next.js + Tailwind CSS + TypeScript Starter</h1>
-          <p className='mt-2 text-sm text-gray-800'>
-            A starter for Next.js, Tailwind CSS, and TypeScript with Absolute
-            Import, Seo, Link component, pre-configured with Husky{' '}
-          </p>
-          <p className='mt-2 text-sm text-gray-700'>
-            <ArrowLink href='https://github.com/theodorusclarence/ts-nextjs-tailwind-starter'>
-              See the repository
-            </ArrowLink>
-          </p>
-
-          <ButtonLink className='mt-6' href='/components' variant='light'>
-            See all components
-          </ButtonLink>
-
-          <UnstyledLink
-            href='https://vercel.com/new/git/external?repository-url=https%3A%2F%2Fgithub.com%2Ftheodorusclarence%2Fts-nextjs-tailwind-starter'
-            className='mt-4'
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              width='92'
-              height='32'
-              src='https://vercel.com/button'
-              alt='Deploy with Vercel'
+    <main className='flex flex-col items-center'>
+      <section className='m-4 flex max-w-[1444px] gap-4 bg-white lg:m-8 lg:gap-8'>
+        <div className='flex w-1/2 flex-col gap-4 text-center lg:w-1/3 lg:gap-8'>
+          {images1.map((img, idx) => (
+            <ImageCard
+              onClick={() => setDialogImg(img.download_url)}
+              key={img.id + '-' + idx}
+              src={img.download_url}
+              width={img.width}
+              height={img.height}
+              author={img.author}
+              id={img.id}
             />
-          </UnstyledLink>
-
-          <footer className='absolute bottom-2 text-gray-700'>
-            © {new Date().getFullYear()} By{' '}
-            <UnderlineLink href='https://theodorusclarence.com?ref=tsnextstarter'>
-              Theodorus Clarence
-            </UnderlineLink>
-          </footer>
+          ))}
+        </div>
+        <div className='flex w-1/2 flex-col gap-4 text-center lg:w-1/3 lg:gap-8'>
+          {images2.map((img, idx) => (
+            <ImageCard
+              onClick={() => setDialogImg(img.download_url)}
+              key={img.id + '-' + idx}
+              src={img.download_url}
+              width={img.width}
+              height={img.height}
+              author={img.author}
+              id={img.id}
+            />
+          ))}
+        </div>
+        <div className='hidden w-1/2 flex-col gap-4 text-center lg:flex lg:w-1/3 lg:gap-8'>
+          {images3.map((img, idx) => (
+            <ImageCard
+              onClick={() => setDialogImg(img.download_url)}
+              key={img.id + '-' + idx}
+              src={img.download_url}
+              width={img.width}
+              height={img.height}
+              author={img.author}
+              id={img.id}
+            />
+          ))}
         </div>
       </section>
+      <dialog
+        open={!!dialogImg}
+        onClick={() => setDialogImg(null)}
+        className='group fixed flex items-center justify-center bg-transparent open:h-full open:w-full open:bg-slate-800/70'
+      >
+        <img
+          className='max-h-screen max-w-screen-xl group-open:p-4'
+          src={dialogImg ?? undefined}
+        />
+      </dialog>
+      <footer className='my-8 text-center' ref={loadMoreRef}>
+        footer
+      </footer>
     </main>
   );
 }
+
+const ImageCard: React.FC<{ author: string } & ImageProps> = ({
+  src,
+  width,
+  height,
+  author,
+  id,
+  onClick,
+  ...rest
+}) => {
+  const [imgBlob, setImgBlob] = useState<string>();
+  return (
+    <div onClick={onClick} className={`group relative cursor-pointer`}>
+      <Image
+        className={clsxm('bg-gray-300')}
+        width={width}
+        height={height}
+        src={src}
+        onMouseEnter={() => {
+          if (imgBlob) return;
+
+          // download the image so the user can save it
+          fetch(src as string)
+            .then((resp) => resp.blob())
+            .then((blobobject) => {
+              const blob = window.URL.createObjectURL(blobobject);
+              setImgBlob(blob);
+            })
+            .catch(() =>
+              console.log('An error ocurred while downloading the image')
+            );
+        }}
+        {...rest}
+      />
+      <div className='absolute inset-0  h-full w-full bg-gradient-to-t from-slate-900/90 via-transparent to-slate-900/90 opacity-0 duration-300 ease-in-out group-hover:opacity-100'>
+        <div className='m-4 flex justify-between text-white'>
+          <div className='flex'>{author}</div>
+          <a href={imgBlob} download={id}>
+            <BiDownload className='hover:text-slate-300 active:text-slate-400'></BiDownload>
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const fetchData = async (page: number) => {
+  const res = await fetch(`https://picsum.photos/v2/list?page=${page}`);
+  const data = await res.json();
+  return data;
+};
+
+export const getStaticProps: GetStaticProps = async () => {
+  const data = await fetchData(1);
+  return {
+    props: { data },
+  };
+};
